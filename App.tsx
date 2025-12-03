@@ -11,13 +11,19 @@ const App: React.FC = () => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Navigation State
   const [view, setView] = useState<'create' | 'cookbook'>('create');
+  // Track previous view to return to correct screen on 'Back'
+  const [returnView, setReturnView] = useState<'create' | 'cookbook'>('create');
 
   const handleCreateRecipe = async (request: RecipeRequest) => {
     setLoading(true);
     setError(null);
     setActiveRecipe(null);
     setImageUrl(null);
+    // When generating new recipe, back button should go to form
+    setReturnView('create');
 
     try {
       // 1. Generate the recipe text
@@ -37,18 +43,25 @@ const App: React.FC = () => {
     }
   };
 
-  const handleReset = () => {
+  const handleBack = () => {
     setActiveRecipe(null);
     setImageUrl(null);
     setError(null);
-    setView('create');
+    // Return to the view we came from (Cookbook or Create Form)
+    setView(returnView);
   };
 
   const handleSelectSavedRecipe = (recipe: SavedRecipe) => {
     setActiveRecipe(recipe);
     // If the saved recipe has an image URL stored, use it
     setImageUrl(recipe.imageUrl || null);
-    setView('create'); // Reuse the 'create' view container which holds RecipeDisplay
+    // When opening from cookbook, back button should go to cookbook
+    setReturnView('cookbook');
+  };
+
+  const toggleView = (targetView: 'create' | 'cookbook') => {
+    setView(targetView);
+    setActiveRecipe(null);
   };
 
   return (
@@ -64,7 +77,7 @@ const App: React.FC = () => {
       {/* Header / Nav */}
       <header className="relative z-20 w-full px-4 py-4 md:py-6 flex justify-between items-center max-w-6xl mx-auto">
         <div 
-          onClick={() => { setView('create'); setActiveRecipe(null); }}
+          onClick={() => toggleView('create')}
           className="font-serif font-bold text-xl md:text-2xl text-chef-800 cursor-pointer flex items-center gap-2"
         >
           ChefGenie
@@ -72,14 +85,14 @@ const App: React.FC = () => {
         
         <nav className="flex items-center gap-2 bg-white/50 backdrop-blur-md p-1 rounded-full border border-chef-200">
            <button 
-             onClick={() => { setView('create'); setActiveRecipe(null); }}
+             onClick={() => toggleView('create')}
              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${view === 'create' && !activeRecipe ? 'bg-chef-800 text-white shadow-md' : 'text-chef-600 hover:bg-chef-100'}`}
            >
              <span className="flex items-center gap-2"><PlusCircle className="w-4 h-4" /> <span className="hidden sm:inline">New Recipe</span></span>
            </button>
            <button 
-             onClick={() => { setView('cookbook'); setActiveRecipe(null); }}
-             className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${view === 'cookbook' ? 'bg-chef-800 text-white shadow-md' : 'text-chef-600 hover:bg-chef-100'}`}
+             onClick={() => toggleView('cookbook')}
+             className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${view === 'cookbook' && !activeRecipe ? 'bg-chef-800 text-white shadow-md' : 'text-chef-600 hover:bg-chef-100'}`}
            >
              <span className="flex items-center gap-2"><BookOpen className="w-4 h-4" /> <span className="hidden sm:inline">My Cookbook</span></span>
            </button>
@@ -96,22 +109,16 @@ const App: React.FC = () => {
 
         {/* View Routing */}
         
-        {view === 'cookbook' && (
-          <SavedRecipes onSelectRecipe={handleSelectSavedRecipe} onBack={() => setView('create')} />
-        )}
-
-        {view === 'create' && !activeRecipe && (
-          <RecipeForm onSubmit={handleCreateRecipe} isLoading={loading} />
-        )}
-
-        {/* Note: RecipeDisplay is shown when activeRecipe is present, regardless of 'view' technically, 
-            but usually we are in 'create' view container when showing a recipe detail */}
-        {activeRecipe && (
-          <RecipeDisplay 
+        {activeRecipe ? (
+           <RecipeDisplay 
             recipe={activeRecipe} 
             imageUrl={imageUrl} 
-            onReset={handleReset} 
+            onReset={handleBack} 
           />
+        ) : view === 'cookbook' ? (
+          <SavedRecipes onSelectRecipe={handleSelectSavedRecipe} onBack={() => toggleView('create')} />
+        ) : (
+          <RecipeForm onSubmit={handleCreateRecipe} isLoading={loading} />
         )}
 
       </main>
