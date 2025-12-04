@@ -1,17 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Recipe, RecipeRequest } from "../types";
 
-const apiKey = process.env.API_KEY;
-
-if (!apiKey) {
-  console.error("API_KEY is missing from environment variables.");
-}
-
-const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy-key-for-build' });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> => {
-  if (!apiKey) throw new Error("API Key not found");
-
   const prompt = `
     Create a unique, complete meal recipe for ${request.mealType}.
     Context: The user has the following ingredients available (try to use them but you can add others): "${request.availableIngredients}".
@@ -72,8 +64,6 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
 };
 
 export const generateRecipeImage = async (recipeTitle: string, description: string): Promise<string | null> => {
-  if (!apiKey) return null;
-
   try {
     const prompt = `A professional, appetizing food photography shot of ${recipeTitle}. ${description}. High resolution, culinary magazine style, beautiful lighting, photorealistic.`;
     
