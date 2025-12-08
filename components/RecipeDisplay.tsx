@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Recipe, SavedRecipe } from '../types';
 import { Clock, Users, Flame, ChefHat, CheckCircle2, ArrowRight, Heart, Star, Save, Trash2, Check } from 'lucide-react';
+import { RecipeAssistant } from './RecipeAssistant';
 
 interface RecipeDisplayProps {
   recipe: Recipe | SavedRecipe;
   imageUrl: string | null;
   onReset: () => void;
+  onUpdateRecipe: (newRecipe: Recipe) => void;
 }
 
-export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({ recipe, imageUrl, onReset }) => {
+export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({ recipe, imageUrl, onReset, onUpdateRecipe }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState('');
@@ -31,7 +33,16 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({ recipe, imageUrl, 
           setIsSaved(true);
           setRating(found.rating || 0);
           setNotes(found.notes || '');
+        } else {
+          // Reset if we switched to a non-saved recipe
+          setIsSaved(false);
+          setRating(0);
+          setNotes('');
         }
+      } else {
+         setIsSaved(false);
+         setRating(0);
+         setNotes('');
       }
     }
   }, [recipe]);
@@ -103,7 +114,7 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({ recipe, imageUrl, 
   };
 
   return (
-    <div className="max-w-3xl mx-auto w-full pb-12 animate-in fade-in zoom-in-95 duration-700">
+    <div className="max-w-3xl mx-auto w-full pb-24 animate-in fade-in zoom-in-95 duration-700 relative">
       
       {/* Navigation / Actions */}
       <div className="flex justify-between items-center mb-6">
@@ -319,6 +330,10 @@ export const RecipeDisplay: React.FC<RecipeDisplayProps> = ({ recipe, imageUrl, 
           </div>
         )}
       </div>
+
+      {/* Floating Assistant Component */}
+      <RecipeAssistant recipe={recipe} onUpdateRecipe={onUpdateRecipe} />
+
     </div>
   );
 };

@@ -1,7 +1,43 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { Recipe, RecipeRequest } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+// Shared Schema for Recipe Generation
+const RECIPE_SCHEMA: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING },
+    description: { type: Type.STRING },
+    mealType: { type: Type.STRING },
+    servings: { type: Type.INTEGER },
+    prepTimeMinutes: { type: Type.INTEGER },
+    cookTimeMinutes: { type: Type.INTEGER },
+    caloriesPerServing: { type: Type.INTEGER },
+    difficulty: { type: Type.STRING, enum: ['Easy', 'Medium', 'Hard'] },
+    ingredients: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          amount: { type: Type.STRING, description: "Quantity and unit, e.g. '2 cups' or '200g'" },
+          notes: { type: Type.STRING, nullable: true }
+        },
+        required: ['name', 'amount']
+      }
+    },
+    instructions: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING }
+    },
+    chefTips: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING }
+    }
+  },
+  required: ['title', 'description', 'ingredients', 'instructions', 'servings', 'prepTimeMinutes', 'cookTimeMinutes']
+};
 
 export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> => {
   const prompt = `
@@ -19,40 +55,7 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
     contents: prompt,
     config: {
       responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          description: { type: Type.STRING },
-          mealType: { type: Type.STRING },
-          servings: { type: Type.INTEGER },
-          prepTimeMinutes: { type: Type.INTEGER },
-          cookTimeMinutes: { type: Type.INTEGER },
-          caloriesPerServing: { type: Type.INTEGER },
-          difficulty: { type: Type.STRING, enum: ['Easy', 'Medium', 'Hard'] },
-          ingredients: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                name: { type: Type.STRING },
-                amount: { type: Type.STRING, description: "Quantity and unit, e.g. '2 cups' or '200g'" },
-                notes: { type: Type.STRING, nullable: true }
-              },
-              required: ['name', 'amount']
-            }
-          },
-          instructions: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-          },
-          chefTips: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING }
-          }
-        },
-        required: ['title', 'description', 'ingredients', 'instructions', 'servings', 'prepTimeMinutes', 'cookTimeMinutes']
-      }
+      responseSchema: RECIPE_SCHEMA
     }
   });
 
@@ -64,6 +67,9 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
 };
 
 export const generateRecipeImage = async (recipeTitle: string, description: string): Promise<string | null> => {
+  // Check if we are in a build environment without a key (prevent crash)
+  if (!process.env.API_KEY) return null;
+
   try {
     const prompt = `A professional, appetizing food photography shot of ${recipeTitle}. ${description}. High resolution, culinary magazine style, beautiful lighting, photorealistic.`;
     
@@ -90,4 +96,59 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
     console.error("Image generation failed:", error);
     return null; 
   }
+};
+
+export const askChefAboutRecipe = async (recipe: Recipe, question: string): Promise<string> => {
+  const prompt = `
+    You are a helpful, knowledgeable chef assistant.
+    
+    Current Recipe Context:
+    Title: ${recipe.title}
+    Ingredients: ${recipe.ingredients.map(i => `${i.amount} ${i.name}`).join(', ')}
+    Instructions: ${recipe.instructions.join(' ')}
+    
+    User Question: "${question}"
+    
+    Answer the user's question directly and helpfully. If they ask for substitutions, explain why. Keep the answer concise (under 3 sentences if possible).
+  `;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+  });
+
+  return response.text || "I'm having trouble thinking of an answer right now.";
+};
+
+export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Promise<Recipe> => {
+  const prompt = `
+    The user wants to modify the following recipe.
+    
+    Original Recipe JSON:
+    ${JSON.stringify(currentRecipe)}
+    
+    User Feedback/Requested Changes:
+    "${feedback}"
+    
+    Task:
+    1. Modify the recipe to accommodate the user's request (e.g., remove ingredients, change serving size, make it spicy, swap items).
+    2. Ensure the title and description are updated if the changes are significant.
+    3. Ensure quantities and instructions are logically consistent with the changes.
+    4. Return the FULL updated recipe as JSON.
+  `;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: RECIPE_SCHEMA
+    }
+  });
+
+  if (!response.text) {
+    throw new Error("Failed to update recipe");
+  }
+
+  return JSON.parse(response.text) as Recipe;
 };

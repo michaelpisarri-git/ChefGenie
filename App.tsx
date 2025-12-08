@@ -59,6 +59,15 @@ const App: React.FC = () => {
     setReturnView('cookbook');
   };
 
+  const handleRecipeUpdate = (newRecipe: Recipe) => {
+    // When the assistant tweaks a recipe, we update the active view
+    // Note: We strip the ID if it was a saved recipe, treating it as a new draft
+    // until the user hits "Save" again.
+    setActiveRecipe(newRecipe);
+    // Optionally we could clear the image if the change is significant, 
+    // but often keeping the old image is better than nothing for small tweaks.
+  };
+
   const toggleView = (targetView: 'create' | 'cookbook') => {
     setView(targetView);
     setActiveRecipe(null);
@@ -114,6 +123,7 @@ const App: React.FC = () => {
             recipe={activeRecipe} 
             imageUrl={imageUrl} 
             onReset={handleBack} 
+            onUpdateRecipe={handleRecipeUpdate}
           />
         ) : view === 'cookbook' ? (
           <SavedRecipes onSelectRecipe={handleSelectSavedRecipe} onBack={() => toggleView('create')} />
