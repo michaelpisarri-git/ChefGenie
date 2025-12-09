@@ -61,8 +61,7 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
     Return the response in JSON format.
   `;
 
-  // NOTE: Changed model to 'gemini-1.5-flash' which is the current stable version.
-  // You can use 'gemini-2.0-flash-exp' if you have access.
+  // NOTE: using 'gemini-1.5-flash' as the standard model.
   const response = await ai.models.generateContent({
     model: 'gemini-1.5-flash', 
     contents: prompt,
@@ -87,16 +86,12 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
   try {
     const prompt = `A professional, appetizing food photography shot of ${recipeTitle}. ${description}. High resolution, culinary magazine style, beautiful lighting, photorealistic.`;
      
-    // NOTE: Image generation usually requires 'imagen-3.0-generate-001' or similar. 
-    // 'gemini-1.5-flash' cannot generate images, only text. 
-    // If this fails, you may need to disable image generation or use the specific Imagen model.
+    // Using 'gemini-2.0-flash-exp' for image capabilities
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp', // 2.0 has some image capabilities, or use 'imagen-3.0-generate-001'
+      model: 'gemini-2.0-flash-exp', 
       contents: prompt,
     });
 
-    // Simple check for image data in response
-    // Note: The structure of image responses varies by model. 
     const parts = response.candidates?.[0]?.content?.parts;
     if (parts) {
       for (const part of parts) {
@@ -154,4 +149,18 @@ export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Prom
     4. Return the FULL updated recipe as JSON.
   `;
 
-  const response = await ai
+  const response = await ai.models.generateContent({
+    model: 'gemini-1.5-flash',
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: RECIPE_SCHEMA
+    }
+  });
+
+  if (!response.text) {
+    throw new Error("Failed to update recipe");
+  }
+
+  return JSON.parse(response.text()) as Recipe;
+}
