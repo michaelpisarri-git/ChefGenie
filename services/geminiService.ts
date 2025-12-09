@@ -81,10 +81,11 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
 // 5. GENERATE IMAGE FUNCTION
 export const generateRecipeImage = async (recipeTitle: string, description: string): Promise<string | null> => {
   try {
+    // Use the specific experimental model for images
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.0-flash",
+      model: "gemini-2.0-flash-exp-image-generation",
       generationConfig: {
-        // @ts-ignore - This property is too new for the current type definition
+        // @ts-ignore
         responseModalities: ["IMAGE"] 
       }
     });
