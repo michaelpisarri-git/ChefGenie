@@ -81,8 +81,13 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
 // 5. GENERATE IMAGE FUNCTION
 export const generateRecipeImage = async (recipeTitle: string, description: string): Promise<string | null> => {
   try {
-    // We reuse the same model because Gemini 2.0 Flash can do text AND images!
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.0-flash",
+      generationConfig: {
+        // THIS IS THE MISSING KEY:
+        responseModalities: ["IMAGE"] 
+      }
+    });
     
     const prompt = `
       Generate a professional, appetizing food photography shot of ${recipeTitle}. 
@@ -93,11 +98,9 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
     const result = await model.generateContent(prompt);
     const response = result.response;
     
-    // Gemini 2.0 returns images as "inlineData" inside the response parts
     if (response.candidates && response.candidates[0].content.parts) {
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
-          // We found the image! Convert it to a format the browser can show.
           return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
         }
       }
