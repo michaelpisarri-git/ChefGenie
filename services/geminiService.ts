@@ -51,7 +51,7 @@ const schema = {
 // 4. GENERATE RECIPE FUNCTION
 export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> => {
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.0-flash",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: schema,
@@ -107,7 +107,7 @@ export const askChefAboutRecipe = async (recipe: Recipe, question: string): Prom
 // 7. TWEAK RECIPE FUNCTION
 export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Promise<Recipe> => {
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.0-flash",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: schema,
