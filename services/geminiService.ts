@@ -84,7 +84,7 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.0-flash",
       generationConfig: {
-        // THIS IS THE MISSING KEY:
+        // @ts-ignore - This property is too new for the current type definition
         responseModalities: ["IMAGE"] 
       }
     });
