@@ -1,18 +1,19 @@
-import { GoogleGenAI } from "@google/genai";
-// import { Recipe, RecipeRequest } from "../types"; // (Keep your existing imports)
+/// <reference types="vite/client" />
+import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { Recipe, RecipeRequest } from "../types";
 
-// 1. We use 'import.meta.env' because this is a Vite app
-// 2. We use 'VITE_GEMINI_API_KEY' to match what we set in Netlify
+// 1. SETUP API KEY (Vite Style)
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-// Safety check: Log a warning if the key is missing (helps debugging)
+// Safety check
 if (!apiKey) {
   console.error("API Key is missing! Check your .env file or Netlify settings.");
 }
 
+// 2. INITIALIZE CLIENT
 const ai = new GoogleGenAI({ apiKey: apiKey });
 
-// Shared Schema for Recipe Generation
+// 3. DEFINE SCHEMA
 const RECIPE_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -48,19 +49,22 @@ const RECIPE_SCHEMA: Schema = {
   required: ['title', 'description', 'ingredients', 'instructions', 'servings', 'prepTimeMinutes', 'cookTimeMinutes']
 };
 
+// 4. GENERATE RECIPE FUNCTION
 export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> => {
   const prompt = `
     Create a unique, complete meal recipe for ${request.mealType}.
     Context: The user has the following ingredients available (try to use them but you can add others): "${request.availableIngredients}".
     Dietary restrictions: "${request.dietaryRestrictions || 'None'}".
     Scale the recipe exactly for ${request.servings} serving(s).
-    
+     
     The recipe should be creative but practical.
     Return the response in JSON format.
   `;
 
+  // NOTE: Changed model to 'gemini-1.5-flash' which is the current stable version.
+  // You can use 'gemini-2.0-flash-exp' if you have access.
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-1.5-flash', 
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -72,25 +76,27 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
     throw new Error("Failed to generate recipe text");
   }
 
-  return JSON.parse(response.text) as Recipe;
+  return JSON.parse(response.text()) as Recipe;
 };
 
+// 5. GENERATE IMAGE FUNCTION
 export const generateRecipeImage = async (recipeTitle: string, description: string): Promise<string | null> => {
-  // Check if we are in a build environment without a key (prevent crash)
-  if (!process.env.API_KEY) return null;
+  // FIX: Used 'apiKey' variable instead of process.env
+  if (!apiKey) return null;
 
   try {
     const prompt = `A professional, appetizing food photography shot of ${recipeTitle}. ${description}. High resolution, culinary magazine style, beautiful lighting, photorealistic.`;
-    
+     
+    // NOTE: Image generation usually requires 'imagen-3.0-generate-001' or similar. 
+    // 'gemini-1.5-flash' cannot generate images, only text. 
+    // If this fails, you may need to disable image generation or use the specific Imagen model.
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-2.0-flash-exp', // 2.0 has some image capabilities, or use 'imagen-3.0-generate-001'
       contents: prompt,
-      config: {
-          // No responseMimeType for image models in generateContent as per guidelines
-      }
     });
 
-    // Iterate through parts to find the image
+    // Simple check for image data in response
+    // Note: The structure of image responses varies by model. 
     const parts = response.candidates?.[0]?.content?.parts;
     if (parts) {
       for (const part of parts) {
@@ -107,38 +113,40 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
   }
 };
 
+// 6. CHAT FUNCTION
 export const askChefAboutRecipe = async (recipe: Recipe, question: string): Promise<string> => {
   const prompt = `
     You are a helpful, knowledgeable chef assistant.
-    
+     
     Current Recipe Context:
     Title: ${recipe.title}
     Ingredients: ${recipe.ingredients.map(i => `${i.amount} ${i.name}`).join(', ')}
     Instructions: ${recipe.instructions.join(' ')}
-    
+     
     User Question: "${question}"
-    
+     
     Answer the user's question directly and helpfully. If they ask for substitutions, explain why. Keep the answer concise (under 3 sentences if possible).
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-1.5-flash',
     contents: prompt,
   });
 
-  return response.text || "I'm having trouble thinking of an answer right now.";
+  return response.text() || "I'm having trouble thinking of an answer right now.";
 };
 
+// 7. TWEAK RECIPE FUNCTION
 export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Promise<Recipe> => {
   const prompt = `
     The user wants to modify the following recipe.
-    
+     
     Original Recipe JSON:
     ${JSON.stringify(currentRecipe)}
-    
+     
     User Feedback/Requested Changes:
     "${feedback}"
-    
+     
     Task:
     1. Modify the recipe to accommodate the user's request (e.g., remove ingredients, change serving size, make it spicy, swap items).
     2. Ensure the title and description are updated if the changes are significant.
@@ -146,18 +154,4 @@ export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Prom
     4. Return the FULL updated recipe as JSON.
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RECIPE_SCHEMA
-    }
-  });
-
-  if (!response.text) {
-    throw new Error("Failed to update recipe");
-  }
-
-  return JSON.parse(response.text) as Recipe;
-};
+  const response = await ai
