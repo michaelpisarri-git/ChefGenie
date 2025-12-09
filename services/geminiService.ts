@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
-import { GoogleGenerativeAI } from "@google/generative-ai";
-// We point to src/types because your types file is inside the src folder
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { Recipe, RecipeRequest } from "../src/types";
 
 // 1. SETUP API KEY
@@ -15,35 +14,35 @@ const genAI = new GoogleGenerativeAI(apiKey);
 
 // 3. DEFINE SCHEMA
 const schema = {
-  type: "OBJECT",
+  type: SchemaType.OBJECT,
   properties: {
-    title: { type: "STRING" },
-    description: { type: "STRING" },
-    mealType: { type: "STRING" },
-    servings: { type: "NUMBER" },
-    prepTimeMinutes: { type: "NUMBER" },
-    cookTimeMinutes: { type: "NUMBER" },
-    caloriesPerServing: { type: "NUMBER" },
-    difficulty: { type: "STRING" },
+    title: { type: SchemaType.STRING },
+    description: { type: SchemaType.STRING },
+    mealType: { type: SchemaType.STRING },
+    servings: { type: SchemaType.NUMBER },
+    prepTimeMinutes: { type: SchemaType.NUMBER },
+    cookTimeMinutes: { type: SchemaType.NUMBER },
+    caloriesPerServing: { type: SchemaType.NUMBER },
+    difficulty: { type: SchemaType.STRING },
     ingredients: {
-      type: "ARRAY",
+      type: SchemaType.ARRAY,
       items: {
-        type: "OBJECT",
+        type: SchemaType.OBJECT,
         properties: {
-          name: { type: "STRING" },
-          amount: { type: "STRING" },
-          notes: { type: "STRING", nullable: true }
+          name: { type: SchemaType.STRING },
+          amount: { type: SchemaType.STRING },
+          notes: { type: SchemaType.STRING, nullable: true }
         },
         required: ['name', 'amount']
       }
     },
     instructions: {
-      type: "ARRAY",
-      items: { type: "STRING" }
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING }
     },
     chefTips: {
-      type: "ARRAY",
-      items: { type: "STRING" }
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING }
     }
   },
   required: ['title', 'description', 'ingredients', 'instructions', 'servings', 'prepTimeMinutes', 'cookTimeMinutes']
