@@ -86,7 +86,8 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
       model: "gemini-2.0-flash-exp-image-generation",
       generationConfig: {
         // @ts-ignore
-        responseModalities: ["IMAGE"] 
+        // FIX: You must allow BOTH Text and Image, or the model crashes!
+        responseModalities: ["TEXT", "IMAGE"] 
       }
     });
     
