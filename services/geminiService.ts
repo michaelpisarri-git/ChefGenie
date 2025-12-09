@@ -1,7 +1,16 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { Recipe, RecipeRequest } from "../types";
+import { GoogleGenAI } from "@google/genai";
+// import { Recipe, RecipeRequest } from "../types"; // (Keep your existing imports)
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// 1. We use 'import.meta.env' because this is a Vite app
+// 2. We use 'VITE_GEMINI_API_KEY' to match what we set in Netlify
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+// Safety check: Log a warning if the key is missing (helps debugging)
+if (!apiKey) {
+  console.error("API Key is missing! Check your .env file or Netlify settings.");
+}
+
+const ai = new GoogleGenAI({ apiKey: apiKey });
 
 // Shared Schema for Recipe Generation
 const RECIPE_SCHEMA: Schema = {
