@@ -61,7 +61,7 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash-002', 
+    model: 'gemini-1.5-flash-001', 
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -116,7 +116,7 @@ export const askChefAboutRecipe = async (recipe: Recipe, question: string): Prom
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash-002',
+    model: 'gemini-1.5-flash-001',
     contents: prompt,
   });
 
@@ -134,7 +134,7 @@ export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Prom
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash-002',
+    model: 'gemini-1.5-flash-001',
     contents: prompt,
     config: {
       responseMimeType: "application/json",
