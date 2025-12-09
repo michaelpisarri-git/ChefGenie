@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
-import { Recipe, RecipeRequest } from "../types";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+// We point to src/types because your types file is inside the src folder
+import { Recipe, RecipeRequest } from "../src/types";
 
 // 1. SETUP API KEY
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -12,37 +13,37 @@ if (!apiKey) {
 // 2. INITIALIZE CLIENT
 const genAI = new GoogleGenerativeAI(apiKey);
 
-// 3. DEFINE SCHEMA (Using standard SchemaType)
+// 3. DEFINE SCHEMA
 const schema = {
-  type: SchemaType.OBJECT,
+  type: "OBJECT",
   properties: {
-    title: { type: SchemaType.STRING },
-    description: { type: SchemaType.STRING },
-    mealType: { type: SchemaType.STRING },
-    servings: { type: SchemaType.NUMBER },
-    prepTimeMinutes: { type: SchemaType.NUMBER },
-    cookTimeMinutes: { type: SchemaType.NUMBER },
-    caloriesPerServing: { type: SchemaType.NUMBER },
-    difficulty: { type: SchemaType.STRING }, // Enums are handled by validation in prompt usually
+    title: { type: "STRING" },
+    description: { type: "STRING" },
+    mealType: { type: "STRING" },
+    servings: { type: "NUMBER" },
+    prepTimeMinutes: { type: "NUMBER" },
+    cookTimeMinutes: { type: "NUMBER" },
+    caloriesPerServing: { type: "NUMBER" },
+    difficulty: { type: "STRING" },
     ingredients: {
-      type: SchemaType.ARRAY,
+      type: "ARRAY",
       items: {
-        type: SchemaType.OBJECT,
+        type: "OBJECT",
         properties: {
-          name: { type: SchemaType.STRING },
-          amount: { type: SchemaType.STRING },
-          notes: { type: SchemaType.STRING, nullable: true }
+          name: { type: "STRING" },
+          amount: { type: "STRING" },
+          notes: { type: "STRING", nullable: true }
         },
         required: ['name', 'amount']
       }
     },
     instructions: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
+      type: "ARRAY",
+      items: { type: "STRING" }
     },
     chefTips: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
+      type: "ARRAY",
+      items: { type: "STRING" }
     }
   },
   required: ['title', 'description', 'ingredients', 'instructions', 'servings', 'prepTimeMinutes', 'cookTimeMinutes']
@@ -71,11 +72,6 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
   try {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-
-    if (!responseText) {
-      throw new Error("Empty response from AI");
-    }
-
     return JSON.parse(responseText) as Recipe;
   } catch (error) {
     console.error("Recipe Generation Error:", error);
@@ -85,10 +81,7 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
 
 // 5. GENERATE IMAGE FUNCTION
 export const generateRecipeImage = async (recipeTitle: string, description: string): Promise<string | null> => {
-  // NOTE: The stable SDK does not natively support Imagen yet. 
-  // For now, we return null to prevent the app from crashing.
-  // We can add a custom REST call later if you need images.
-  console.log("Image generation temporarily disabled to ensure stability.");
+  console.log("Image generation temporarily disabled.");
   return null;
 };
 
