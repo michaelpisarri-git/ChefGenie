@@ -1,48 +1,48 @@
 /// <reference types="vite/client" />
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { Recipe, RecipeRequest } from "../types";
 
 // 1. SETUP API KEY
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!apiKey) {
-  console.error("API Key is missing! Check your .env file or Netlify settings.");
+  console.error("API Key is missing! Check your .env file.");
 }
 
 // 2. INITIALIZE CLIENT
-const ai = new GoogleGenAI({ apiKey: apiKey });
+const genAI = new GoogleGenerativeAI(apiKey);
 
-// 3. DEFINE SCHEMA
-const RECIPE_SCHEMA: Schema = {
-  type: Type.OBJECT,
+// 3. DEFINE SCHEMA (Using standard SchemaType)
+const schema = {
+  type: SchemaType.OBJECT,
   properties: {
-    title: { type: Type.STRING },
-    description: { type: Type.STRING },
-    mealType: { type: Type.STRING },
-    servings: { type: Type.INTEGER },
-    prepTimeMinutes: { type: Type.INTEGER },
-    cookTimeMinutes: { type: Type.INTEGER },
-    caloriesPerServing: { type: Type.INTEGER },
-    difficulty: { type: Type.STRING, enum: ['Easy', 'Medium', 'Hard'] },
+    title: { type: SchemaType.STRING },
+    description: { type: SchemaType.STRING },
+    mealType: { type: SchemaType.STRING },
+    servings: { type: SchemaType.NUMBER },
+    prepTimeMinutes: { type: SchemaType.NUMBER },
+    cookTimeMinutes: { type: SchemaType.NUMBER },
+    caloriesPerServing: { type: SchemaType.NUMBER },
+    difficulty: { type: SchemaType.STRING }, // Enums are handled by validation in prompt usually
     ingredients: {
-      type: Type.ARRAY,
+      type: SchemaType.ARRAY,
       items: {
-        type: Type.OBJECT,
+        type: SchemaType.OBJECT,
         properties: {
-          name: { type: Type.STRING },
-          amount: { type: Type.STRING, description: "Quantity and unit" },
-          notes: { type: Type.STRING, nullable: true }
+          name: { type: SchemaType.STRING },
+          amount: { type: SchemaType.STRING },
+          notes: { type: SchemaType.STRING, nullable: true }
         },
         required: ['name', 'amount']
       }
     },
     instructions: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING }
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING }
     },
     chefTips: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING }
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING }
     }
   },
   required: ['title', 'description', 'ingredients', 'instructions', 'servings', 'prepTimeMinutes', 'cookTimeMinutes']
@@ -50,31 +50,30 @@ const RECIPE_SCHEMA: Schema = {
 
 // 4. GENERATE RECIPE FUNCTION
 export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> => {
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: schema,
+    }
+  });
+
   const prompt = `
     Create a unique, complete meal recipe for ${request.mealType}.
-    Context: The user has the following ingredients available (try to use them but you can add others): "${request.availableIngredients}".
+    Context: The user has the following ingredients available: "${request.availableIngredients}".
     Dietary restrictions: "${request.dietaryRestrictions || 'None'}".
     Scale the recipe exactly for ${request.servings} serving(s).
-      
+    
     The recipe should be creative but practical.
-    Return the response in JSON format.
+    The difficulty field must be exactly one of: "Easy", "Medium", or "Hard".
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash', 
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: RECIPE_SCHEMA
-      }
-    });
-
-    // FIX: Access .text as a property, not a function
-    const responseText = response.text;
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
 
     if (!responseText) {
-      throw new Error("Failed to generate recipe text. The model might have been blocked or returned empty.");
+      throw new Error("Empty response from AI");
     }
 
     return JSON.parse(responseText) as Recipe;
@@ -86,34 +85,17 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
 
 // 5. GENERATE IMAGE FUNCTION
 export const generateRecipeImage = async (recipeTitle: string, description: string): Promise<string | null> => {
-  if (!apiKey) return null;
-
-  try {
-    const prompt = `A professional, appetizing food photography shot of ${recipeTitle}. ${description}. High resolution, culinary magazine style, beautiful lighting, photorealistic.`;
-      
-    const response = await ai.models.generateContent({
-      model: 'imagen-3.0-generate-001', // FIX: Use Imagen model for images
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    });
-
-    const parts = response.candidates?.[0]?.content?.parts;
-    if (parts) {
-      for (const part of parts) {
-        if (part.inlineData && part.inlineData.data) {
-           return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        }
-      }
-    }
-    return null;
-
-  } catch (error) {
-    console.error("Image generation failed:", error);
-    return null; 
-  }
+  // NOTE: The stable SDK does not natively support Imagen yet. 
+  // For now, we return null to prevent the app from crashing.
+  // We can add a custom REST call later if you need images.
+  console.log("Image generation temporarily disabled to ensure stability.");
+  return null;
 };
 
 // 6. CHAT FUNCTION
 export const askChefAboutRecipe = async (recipe: Recipe, question: string): Promise<string> => {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  
   const prompt = `
     You are a helpful, knowledgeable chef assistant.
     Current Recipe Context: ${recipe.title}.
@@ -121,17 +103,25 @@ export const askChefAboutRecipe = async (recipe: Recipe, question: string): Prom
     Answer concisely.
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash',
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-  });
-
-  // FIX: Access .text as a property
-  return response.text || "I'm having trouble thinking of an answer right now.";
+  try {
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (error) {
+    console.error("Chat Error:", error);
+    return "I'm having trouble thinking right now.";
+  }
 };
 
 // 7. TWEAK RECIPE FUNCTION
 export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Promise<Recipe> => {
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: schema,
+    }
+  });
+
   const prompt = `
     The user wants to modify the following recipe.
     Original Recipe JSON: ${JSON.stringify(currentRecipe)}
@@ -139,21 +129,12 @@ export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Prom
     Return the FULL updated recipe as JSON.
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash',
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RECIPE_SCHEMA
-    }
-  });
-
-  // FIX: Access .text as a property
-  const responseText = response.text;
-
-  if (!responseText) {
+  try {
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    return JSON.parse(responseText) as Recipe;
+  } catch (error) {
+    console.error("Tweak Error:", error);
     throw new Error("Failed to update recipe");
   }
-
-  return JSON.parse(responseText) as Recipe;
 }
