@@ -2,10 +2,9 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { Recipe, RecipeRequest } from "../types";
 
-// 1. SETUP API KEY (Vite Style)
+// 1. SETUP API KEY
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-// Safety check
 if (!apiKey) {
   console.error("API Key is missing! Check your .env file or Netlify settings.");
 }
@@ -31,7 +30,7 @@ const RECIPE_SCHEMA: Schema = {
         type: Type.OBJECT,
         properties: {
           name: { type: Type.STRING },
-          amount: { type: Type.STRING, description: "Quantity and unit, e.g. '2 cups' or '200g'" },
+          amount: { type: Type.STRING, description: "Quantity and unit" },
           notes: { type: Type.STRING, nullable: true }
         },
         required: ['name', 'amount']
@@ -61,7 +60,6 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
     Return the response in JSON format.
   `;
 
-  // NOTE: using 'gemini-1.5-flash' as the standard model.
   const response = await ai.models.generateContent({
     model: 'gemini-1.5-flash', 
     contents: prompt,
@@ -71,22 +69,22 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
     }
   });
 
+  // FIX: changed response.text() to response.text
   if (!response.text) {
     throw new Error("Failed to generate recipe text");
   }
 
-  return JSON.parse(response.text()) as Recipe;
+  // FIX: changed response.text() to response.text
+  return JSON.parse(response.text) as Recipe;
 };
 
 // 5. GENERATE IMAGE FUNCTION
 export const generateRecipeImage = async (recipeTitle: string, description: string): Promise<string | null> => {
-  // FIX: Used 'apiKey' variable instead of process.env
   if (!apiKey) return null;
 
   try {
     const prompt = `A professional, appetizing food photography shot of ${recipeTitle}. ${description}. High resolution, culinary magazine style, beautiful lighting, photorealistic.`;
      
-    // Using 'gemini-2.0-flash-exp' for image capabilities
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash-exp', 
       contents: prompt,
@@ -112,15 +110,9 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
 export const askChefAboutRecipe = async (recipe: Recipe, question: string): Promise<string> => {
   const prompt = `
     You are a helpful, knowledgeable chef assistant.
-     
-    Current Recipe Context:
-    Title: ${recipe.title}
-    Ingredients: ${recipe.ingredients.map(i => `${i.amount} ${i.name}`).join(', ')}
-    Instructions: ${recipe.instructions.join(' ')}
-     
+    Current Recipe Context: ${recipe.title}.
     User Question: "${question}"
-     
-    Answer the user's question directly and helpfully. If they ask for substitutions, explain why. Keep the answer concise (under 3 sentences if possible).
+    Answer concisely.
   `;
 
   const response = await ai.models.generateContent({
@@ -128,25 +120,17 @@ export const askChefAboutRecipe = async (recipe: Recipe, question: string): Prom
     contents: prompt,
   });
 
-  return response.text() || "I'm having trouble thinking of an answer right now.";
+  // FIX: changed response.text() to response.text
+  return response.text || "I'm having trouble thinking of an answer right now.";
 };
 
 // 7. TWEAK RECIPE FUNCTION
 export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Promise<Recipe> => {
   const prompt = `
     The user wants to modify the following recipe.
-     
-    Original Recipe JSON:
-    ${JSON.stringify(currentRecipe)}
-     
-    User Feedback/Requested Changes:
-    "${feedback}"
-     
-    Task:
-    1. Modify the recipe to accommodate the user's request (e.g., remove ingredients, change serving size, make it spicy, swap items).
-    2. Ensure the title and description are updated if the changes are significant.
-    3. Ensure quantities and instructions are logically consistent with the changes.
-    4. Return the FULL updated recipe as JSON.
+    Original Recipe JSON: ${JSON.stringify(currentRecipe)}
+    User Feedback: "${feedback}"
+    Return the FULL updated recipe as JSON.
   `;
 
   const response = await ai.models.generateContent({
@@ -162,5 +146,6 @@ export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Prom
     throw new Error("Failed to update recipe");
   }
 
-  return JSON.parse(response.text()) as Recipe;
+  // FIX: changed response.text() to response.text
+  return JSON.parse(response.text) as Recipe;
 }
