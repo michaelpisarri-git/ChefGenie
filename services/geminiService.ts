@@ -12,7 +12,7 @@ if (!apiKey) {
 // 2. INITIALIZE CLIENT
 const ai = new GoogleGenAI({ apiKey: apiKey });
 
-// 3. DEFINE SCHEMA (This was perfect)
+// 3. DEFINE SCHEMA
 const RECIPE_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -63,16 +63,15 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-1.5-flash', 
-      contents: [{ role: 'user', parts: [{ text: prompt }] }], // Better structure
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
         responseSchema: RECIPE_SCHEMA
       }
     });
 
-    // FIX: Reverted to function call response.text()
-    // We add optional chaining in case the response was blocked
-    const responseText = response.text?.();
+    // FIX: Access .text as a property, not a function
+    const responseText = response.text;
 
     if (!responseText) {
       throw new Error("Failed to generate recipe text. The model might have been blocked or returned empty.");
@@ -93,11 +92,10 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
     const prompt = `A professional, appetizing food photography shot of ${recipeTitle}. ${description}. High resolution, culinary magazine style, beautiful lighting, photorealistic.`;
       
     const response = await ai.models.generateContent({
-      model: 'imagen-3.0-generate-001', // FIX: Changed to Imagen model
+      model: 'imagen-3.0-generate-001', // FIX: Use Imagen model for images
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 
-    // Imagen returns data in parts
     const parts = response.candidates?.[0]?.content?.parts;
     if (parts) {
       for (const part of parts) {
@@ -117,7 +115,7 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
 // 6. CHAT FUNCTION
 export const askChefAboutRecipe = async (recipe: Recipe, question: string): Promise<string> => {
   const prompt = `
-    You are a helpful, knowledgeable chef assistant (think Alfred Pennyworth but a chef).
+    You are a helpful, knowledgeable chef assistant.
     Current Recipe Context: ${recipe.title}.
     User Question: "${question}"
     Answer concisely.
@@ -128,8 +126,8 @@ export const askChefAboutRecipe = async (recipe: Recipe, question: string): Prom
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   });
 
-  // FIX: Reverted to function call
-  return response.text?.() || "I'm having trouble thinking of an answer right now.";
+  // FIX: Access .text as a property
+  return response.text || "I'm having trouble thinking of an answer right now.";
 };
 
 // 7. TWEAK RECIPE FUNCTION
@@ -150,7 +148,8 @@ export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Prom
     }
   });
 
-  const responseText = response.text?.();
+  // FIX: Access .text as a property
+  const responseText = response.text;
 
   if (!responseText) {
     throw new Error("Failed to update recipe");
