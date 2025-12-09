@@ -12,7 +12,7 @@ if (!apiKey) {
 // 2. INITIALIZE CLIENT
 const ai = new GoogleGenAI({ apiKey: apiKey });
 
-// 3. DEFINE SCHEMA
+// 3. DEFINE SCHEMA (This was perfect)
 const RECIPE_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -55,27 +55,34 @@ export const generateRecipe = async (request: RecipeRequest): Promise<Recipe> =>
     Context: The user has the following ingredients available (try to use them but you can add others): "${request.availableIngredients}".
     Dietary restrictions: "${request.dietaryRestrictions || 'None'}".
     Scale the recipe exactly for ${request.servings} serving(s).
-     
+      
     The recipe should be creative but practical.
     Return the response in JSON format.
   `;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-1.5-flash', 
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RECIPE_SCHEMA
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-1.5-flash', 
+      contents: [{ role: 'user', parts: [{ text: prompt }] }], // Better structure
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: RECIPE_SCHEMA
+      }
+    });
+
+    // FIX: Reverted to function call response.text()
+    // We add optional chaining in case the response was blocked
+    const responseText = response.text?.();
+
+    if (!responseText) {
+      throw new Error("Failed to generate recipe text. The model might have been blocked or returned empty.");
     }
-  });
 
-  // FIX: changed response.text() to response.text
-  if (!response.text) {
-    throw new Error("Failed to generate recipe text");
+    return JSON.parse(responseText) as Recipe;
+  } catch (error) {
+    console.error("Recipe Generation Error:", error);
+    throw error;
   }
-
-  // FIX: changed response.text() to response.text
-  return JSON.parse(response.text) as Recipe;
 };
 
 // 5. GENERATE IMAGE FUNCTION
@@ -84,12 +91,13 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
 
   try {
     const prompt = `A professional, appetizing food photography shot of ${recipeTitle}. ${description}. High resolution, culinary magazine style, beautiful lighting, photorealistic.`;
-     
+      
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp', 
-      contents: prompt,
+      model: 'imagen-3.0-generate-001', // FIX: Changed to Imagen model
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 
+    // Imagen returns data in parts
     const parts = response.candidates?.[0]?.content?.parts;
     if (parts) {
       for (const part of parts) {
@@ -109,7 +117,7 @@ export const generateRecipeImage = async (recipeTitle: string, description: stri
 // 6. CHAT FUNCTION
 export const askChefAboutRecipe = async (recipe: Recipe, question: string): Promise<string> => {
   const prompt = `
-    You are a helpful, knowledgeable chef assistant.
+    You are a helpful, knowledgeable chef assistant (think Alfred Pennyworth but a chef).
     Current Recipe Context: ${recipe.title}.
     User Question: "${question}"
     Answer concisely.
@@ -117,11 +125,11 @@ export const askChefAboutRecipe = async (recipe: Recipe, question: string): Prom
 
   const response = await ai.models.generateContent({
     model: 'gemini-1.5-flash',
-    contents: prompt,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
   });
 
-  // FIX: changed response.text() to response.text
-  return response.text || "I'm having trouble thinking of an answer right now.";
+  // FIX: Reverted to function call
+  return response.text?.() || "I'm having trouble thinking of an answer right now.";
 };
 
 // 7. TWEAK RECIPE FUNCTION
@@ -135,17 +143,18 @@ export const tweakRecipe = async (currentRecipe: Recipe, feedback: string): Prom
 
   const response = await ai.models.generateContent({
     model: 'gemini-1.5-flash',
-    contents: prompt,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
     config: {
       responseMimeType: "application/json",
       responseSchema: RECIPE_SCHEMA
     }
   });
 
-  if (!response.text) {
+  const responseText = response.text?.();
+
+  if (!responseText) {
     throw new Error("Failed to update recipe");
   }
 
-  // FIX: changed response.text() to response.text
-  return JSON.parse(response.text) as Recipe;
+  return JSON.parse(responseText) as Recipe;
 }
