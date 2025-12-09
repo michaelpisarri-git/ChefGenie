@@ -48,3 +48,4 @@ The dev environment will serve the front-end and forward function requests to `/
 ## Next steps (local verification)
 - Run `npm run build` locally to ensure TypeScript compiles cleanly; fix any tsc errors if they appear.
 - Run `netlify dev` and verify a POST to `/.netlify/functions/generate` with a JSON body { "prompt": "..." } returns a valid result.
+
